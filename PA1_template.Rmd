@@ -4,22 +4,99 @@ output:
   html_document:
     keep_md: true
 ---
+# Introduction
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals throughout the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+This document presents the results from Project Assignment 1 in the Coursera course Reproducible Research, written in a single R markdown document that can be processed by knitr and transformed into an HTML file.
+
+# Loading the required packages
+```{r}
+
+library(dplyr)
+library(ggplot2)
+```
+
+# Reading in the data
+
+```{r}
+activity <- read.csv("repdata-data-activity/activity.csv", colClass=c('integer', 'Date', 'integer'))
+```
+
+Calculate the total number of steps per day
+```{r}
+
+steps.date <- aggregate(steps ~ date, activity, sum)
+head(steps.date)
+```
+
+Use barplot
+```{r}
+barplot(steps.date$steps, names.arg=steps.date$date, ylim=c(0, 25000),xlab="date", ylab="sum(steps)",)
+```
+
+calculating mean and median
+
+```{r}
+mean(steps.date$steps)
+
+median(steps.date$steps)
+
+```
+
+Mean steps are 10766 and median steps are 10765.
+
+```{r, echo=TRUE}
+steps.interval <- aggregate(steps ~ interval, activity, mean)
+plot(steps.interval, type='l')
+sum(is.na(activity$steps))
+```
+
+Missing values are 2304.
+
+#Tyding Data
+
+```{r, echo=TRUE}
+activity_full <- activity
+nas <- is.na(activity_full$steps)
+avg_interval <- tapply(activity_full$steps, activity_full$interval, mean, na.rm=TRUE, simplify=TRUE)
+activity_full$steps[nas] <- avg_interval[as.character(activity_full$interval[nas])]
+
+sum(is.na(activity_full$steps))
+```
+
+No more missing values.
+
+```{r, echo=TRUE}
+steps.date_full <- aggregate(steps ~ date, activity_full, sum)
+head(steps.date_full)
 
 
-## Loading and preprocessing the data
 
+barplot(steps.date_full$steps, names.arg=steps.date_full$date, ylim=c(0, 25000), 
+        xlab="date", ylab="sum(steps)",)
 
+mean(steps.date_full$steps)
+median(steps.date_full$steps)
+```
+The impact of imputing missing data with the average number of steps in the same 5-min interval is that both the mean and the median are equal to the same value: 10766.
 
-## What is mean total number of steps taken per day?
+Use dplyr and mutate to create a new column, weektype, and apply whether the day is weekend or weekday:
 
+```{r, echo=TRUE}
+activity_full <- mutate(activity_full, weektype = ifelse(weekdays(activity_full$date) == "Saturday" | weekdays(activity_full$date) == "Sunday", "weekend", "weekday"))
+activity_full$weektype <- as.factor(activity_full$weektype)
+head(activity_full)
+```
 
+Calculate the average steps in the 5-minute interval and use ggplot for making the time series of the 5-minute interval for weekday and weekend, and compare the average steps:
 
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo=TRUE}
+interval_full <- activity_full %>%
+  group_by(interval, weektype) %>%
+  summarise(steps = mean(steps))
+s <- ggplot(interval_full, aes(x=interval, y=steps, color = weektype)) +
+  geom_line() +
+  facet_wrap(~weektype, ncol = 1, nrow=2)
+print(s)
+```
